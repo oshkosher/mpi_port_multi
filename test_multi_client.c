@@ -14,17 +14,11 @@
 
 const char *PORT_FILENAME = "test_multi.port_name";
 
-int rank;
-double t0;
-
-double getTime() {
-  return MPI_Wtime() - t0;
-}
-
 int main(int argc, char **argv) {
+  int rank;
+
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  t0 = MPI_Wtime();
 
   if (rank > 0) {
     MPI_Finalize();
@@ -41,29 +35,29 @@ int main(int argc, char **argv) {
   }
   fscanf(port_name_file, "%s", port_name);
 
-  printf("%.6f client started, connecting to %s\n", getTime(), port_name);
+  printf("client started, connecting to %s\n", port_name);
 
   MPI_Comm inter_comm = MPI_COMM_NULL;
   MPI_Comm_connect(port_name, MPI_INFO_NULL, 0, MPI_COMM_WORLD, &inter_comm);
 
-  printf("%.6f connected to server\n", getTime());
+  printf("connected to server\n");
 
   int value = 1;
   MPI_Send(&value, 1, MPI_INT, 0, 0, inter_comm);
   MPI_Recv(&value, 1, MPI_INT, 0, 0, inter_comm, MPI_STATUS_IGNORE);
-  printf("%.6f sent 1, received %d\n", getTime(), value);
+  printf("sent 1, received %d\n", value);
 
   value = 100;
   MPI_Send(&value, 1, MPI_INT, 0, 0, inter_comm);
   MPI_Recv(&value, 1, MPI_INT, 0, 0, inter_comm, MPI_STATUS_IGNORE);
-  printf("%.6f sent 100, received %d\n", getTime(), value);
+  printf("sent 100, received %d\n", value);
 
-  value = argc > 1 ? 1000000 : 1000;
+  value = 1000;
   MPI_Send(&value, 1, MPI_INT, 0, 0, inter_comm);
-  printf("%.6f sent %s\n", getTime(), value > 1000 ? "shutdown" : "disconnect");
+  printf("sent disconnect\n");
   
   MPI_Comm_disconnect(&inter_comm);
-  printf("%.6f disconnected\n", getTime());
+  printf("disconnected\n");
 
   MPI_Finalize();
 
