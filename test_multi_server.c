@@ -29,12 +29,11 @@ void* connectionThreadFn(void *thread_arg) {
 
   printf("[%x] %.6f connection opened\n", (int)comm, getTime());
 
-  // MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
-
   MPI_Status status;
   int value;
 
   while (1) {
+    printf("[%x] %.6f waiting for message...\n", (int)comm, getTime());
     MPI_Recv(&value, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &status);
     printf("[%x] %.6f received %d from %d\n", (int)comm, getTime(), value, status.MPI_SOURCE);
 
@@ -43,6 +42,8 @@ void* connectionThreadFn(void *thread_arg) {
     value++;
     MPI_Send(&value, 1, MPI_INT, status.MPI_SOURCE, status.MPI_TAG, comm);
   }
+
+  printf("Successful test.\n");
 
   if (value > 1000) {
     printf("[%x] %.6f shutting down...\n", (int)comm, getTime());
@@ -105,7 +106,7 @@ int main(int argc, char **argv) {
     pthread_t client_thread;
     pthread_create(&client_thread, 0, connectionThreadFn, inter_comm_ptr);
     pthread_detach(client_thread);
-    /* pthread_join(client_thread, 0); */
+    // pthread_join(client_thread, 0);
   }
   
   MPI_Close_port(port_name);
