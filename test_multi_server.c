@@ -5,7 +5,7 @@
     FI_MLX_ENABLE_SPAWN=yes
     FI_MLX_NS_ENABLE=1
 
-  FI_MLX_ENABLE_SPAWN=yes FI_MLX_NS_ENABLE=1 IBRUN_TASKS_PER_NODE=4 ibrun -n 1 ./inter_server_multi
+  FI_MLX_ENABLE_SPAWN=yes FI_MLX_NS_ENABLE=1 IBRUN_TASKS_PER_NODE=4 ibrun -n 1 ./test_multi_server
 */
 
 #include <stdio.h>
