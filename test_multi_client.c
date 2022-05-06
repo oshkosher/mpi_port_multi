@@ -8,8 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <limits.h>
+#include <unistd.h>
 #include <mpi.h>
 
 const char *PORT_FILENAME = "test_multi.port_name";
@@ -25,6 +24,7 @@ int main(int argc, char **argv) {
     return 0;
   }
 
+  /*
   char port_name[MPI_MAX_PORT_NAME+1];
 
   FILE *port_name_file = fopen(PORT_FILENAME, "r");
@@ -34,6 +34,14 @@ int main(int argc, char **argv) {
     return 1;
   }
   fscanf(port_name_file, "%s", port_name);
+  */
+
+  if (argc != 2) {
+    printf("Error: expected port_name as a command line argument\n");
+    MPI_Finalize();
+    return 1;
+  }
+  const char *port_name = argv[1];
 
   printf("client started, connecting to %s\n", port_name);
 
@@ -44,8 +52,9 @@ int main(int argc, char **argv) {
 
   int value = 1;
   MPI_Send(&value, 1, MPI_INT, 0, 0, inter_comm);
+  printf("sent 1, waiting for reply...\n");
   MPI_Recv(&value, 1, MPI_INT, 0, 0, inter_comm, MPI_STATUS_IGNORE);
-  printf("sent 1, received %d\n", value);
+  printf("received %d\n", value);
 
   value = 100;
   MPI_Send(&value, 1, MPI_INT, 0, 0, inter_comm);
