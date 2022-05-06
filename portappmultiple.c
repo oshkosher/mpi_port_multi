@@ -58,6 +58,7 @@ int main(int argc,char **argv) {
   MPI_Comm
     comm_world = MPI_COMM_WORLD,
     comm_self = MPI_COMM_SELF;
+  double start_time;
 
   int world_p,world_n;
   MPI_Comm_size(comm_world,&world_n);
@@ -66,6 +67,8 @@ int main(int argc,char **argv) {
     printf("No thread multiple support; only %d\n",tlevel);
     MPI_Abort(comm_world,0);
   }
+
+  start_time = MPI_Wtime();
 
   /*
    * Set up a communicator for all the worker ranks
@@ -96,6 +99,8 @@ int main(int argc,char **argv) {
     printf("Host sent port <<%s>>\n",myport);
     */
 
+    int client_rank = 0;
+
     while (1) {
       Client *client = (Client*) malloc(sizeof(Client));
 
@@ -106,7 +111,7 @@ int main(int argc,char **argv) {
 
       fprintf(stderr, "host waiting for connection...\n");
       MPI_Comm_accept( client->port_name,MPI_INFO_NULL,0,comm_self,&client->inter_comm );
-      fprintf(stderr, "host accepted connection\n");
+      fprintf(stderr, "\nhost accepted connection at %.3fs\n", MPI_Wtime() - start_time);
 
     /*
      * After the workers have accept the connection,
@@ -142,47 +147,63 @@ int main(int argc,char **argv) {
     int work_p,work_n;
     MPI_Comm_size( comm_work,&work_n );
     MPI_Comm_rank( comm_work,&work_p );
-    /*
-     * In the workers communicator, rank 0
-     * (which is 1 in the global)
-     * receives the port name and passes it on.
-     */
-    char myport[MPI_MAX_PORT_NAME];
-    if (work_p==0) {
-      MPI_Recv( myport,MPI_MAX_PORT_NAME,MPI_CHAR, 
-                MPI_ANY_SOURCE,0, comm_world,MPI_STATUS_IGNORE );
-      printf("Worker received port <<%s>>\n",myport);
-    }
-    MPI_Bcast( myport,MPI_MAX_PORT_NAME,MPI_CHAR,0,comm_work );
+    int iter = -1;
+    char myport[MPI_MAX_PORT_NAME], next_port[MPI_MAX_PORT_NAME];
+    MPI_Request port_name_rq;
 
-    /*
-     * The workers collective connect over the inter communicator
-     */
-    MPI_Comm intercomm;
-    MPI_Comm_connect( myport,MPI_INFO_NULL,0,comm_work,&intercomm );
-    if (work_p==0) {
-      int manage_n;
-      MPI_Comm_remote_size(intercomm,&manage_n);
-      printf("%d workers connected to %d managers\n",work_n,manage_n);
-    }
+    // start the receive for the port name
+    if (work_p==0)
+      MPI_Irecv(next_port, MPI_MAX_PORT_NAME, MPI_CHAR, MPI_ANY_SOURCE, 0, comm_world, &port_name_rq);
 
-    /*
-     * The local leader receives value from the manager
-     */
-    if (work_p==0) {
-      int value;
-      MPI_Status work_status;
-      fprintf(stderr, "Worker zero waiting for value...\n");
-      MPI_Recv( &value, 1, MPI_INT,
-		/* from rank zero of manager comm */ 0,0,intercomm,&work_status );
-      fprintf(stderr, "Worker zero received value %d from manager\n", value);
-      value *= 10;
-      MPI_Send(&value, 1, MPI_INT, 0, 0, intercomm);
+    while (1) {
+      iter++;
+
+      /*
+       * In the workers communicator, rank 0
+       * (which is 1 in the global)
+       * receives the port name and passes it on.
+       */
+      if (work_p==0) {
+        // wait for the port name message
+        MPI_Wait(&port_name_rq, MPI_STATUS_IGNORE);
+        strcpy(myport, next_port);
+        // and start the receive for the next port name
+        MPI_Irecv(next_port, MPI_MAX_PORT_NAME, MPI_CHAR, MPI_ANY_SOURCE, 0, comm_world, &port_name_rq);
+        printf("Iteration %d, worker received port <<%s>>\n", iter, myport);
+      }
+      MPI_Bcast( myport,MPI_MAX_PORT_NAME,MPI_CHAR,0,comm_work );
+
+      /*
+       * The workers collective connect over the inter communicator
+       */
+      MPI_Comm intercomm;
+      MPI_Comm_connect( myport,MPI_INFO_NULL,0,comm_work,&intercomm );
+      if (work_p==0) {
+        int manage_n;
+        MPI_Comm_remote_size(intercomm,&manage_n);
+        printf("%d workers connected to %d managers\n",work_n,manage_n);
+      }
+
+      /*
+       * The local leader receives value from the manager
+       */
+      if (work_p==0) {
+        int value;
+        MPI_Status work_status;
+        fprintf(stderr, "Worker zero waiting for value...\n");
+        MPI_Recv( &value, 1, MPI_INT,
+                  /* from rank zero of manager comm */ 0,0,intercomm,&work_status );
+        fprintf(stderr, "Worker zero received value %d from manager\n", value);
+        value *= 10;
+        MPI_Send(&value, 1, MPI_INT, 0, 0, intercomm);
+      }
+      /*
+       * After we're done, close the connection
+       */
+      MPI_Close_port(myport);
+
+      sleep(10);
     }
-    /*
-     * After we're done, close the connection
-     */
-    MPI_Close_port(myport);
   }
 
   MPI_Finalize();
