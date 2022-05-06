@@ -19,8 +19,15 @@
 #include <mpi.h>
 
 
+typedef struct {
+  char port_name[MPI_MAX_PORT_NAME];
+  pthread_t thread;
+  MPI_Comm inter_comm;
+} Client;
+
+
 void* serverThreadFn(void *v) {
-  MPI_Comm intercomm = *(MPI_Comm*)v;
+  Client *client = (Client*) v;
 
   // make sure the main thread has time to start MPI_Comm_accept again
   sleep(1);
@@ -28,13 +35,17 @@ void* serverThreadFn(void *v) {
   int value = 42;
   fprintf(stderr, "Manager sending value %d over intercomm...\n", value);
   MPI_Send( &value, 1, MPI_INT,
-            /* to rank zero of worker comm */ 0,0,intercomm );
-  fprintf(stderr, "Manager sent value %d over intercomm\n", value);
+            /* to rank zero of worker comm */ 0,0,client->inter_comm );
+  fprintf(stderr, "Manager sent value %d over client->inter_comm\n", value);
 
-  MPI_Recv(&value, 1, MPI_INT, 0, 0, intercomm, MPI_STATUS_IGNORE);
-  fprintf(stderr, "Manager received value %d over intercomm\n", value);
+  MPI_Recv(&value, 1, MPI_INT, 0, 0, client->inter_comm, MPI_STATUS_IGNORE);
+  fprintf(stderr, "Manager received value %d over client->inter_comm\n", value);
 
-  MPI_Comm_disconnect(&intercomm);
+  MPI_Comm_disconnect(&client->inter_comm);
+
+  MPI_Close_port(client->port_name);
+
+  free(client);
 
   return 0;
 }
@@ -75,16 +86,26 @@ int main(int argc,char **argv) {
      * send its name to world process 1,
      * which is zero in the worker comm.
      */
+
+    /*
     MPI_Comm intercomm;
     char myport[MPI_MAX_PORT_NAME];
     MPI_Open_port( MPI_INFO_NULL,myport );
     int portlen = strlen(myport);
     MPI_Send( myport,portlen+1,MPI_CHAR,1,0,comm_world );
     printf("Host sent port <<%s>>\n",myport);
+    */
 
     while (1) {
+      Client *client = (Client*) malloc(sizeof(Client));
+
+      MPI_Open_port( MPI_INFO_NULL, client->port_name );
+      int portlen = strlen(client->port_name);
+      MPI_Send( client->port_name,portlen+1,MPI_CHAR,1,0,comm_world );
+      printf("Host sent port <<%s>>\n",client->port_name);
+
       fprintf(stderr, "host waiting for connection...\n");
-      MPI_Comm_accept( myport,MPI_INFO_NULL,0,comm_self,&intercomm );
+      MPI_Comm_accept( client->port_name,MPI_INFO_NULL,0,comm_self,&client->inter_comm );
       fprintf(stderr, "host accepted connection\n");
 
     /*
@@ -94,15 +115,12 @@ int main(int argc,char **argv) {
     
       // serverThreadFn(&intercomm);
 
-      MPI_Comm *intercomm_p = (MPI_Comm*) malloc(sizeof intercomm);
-      *intercomm_p = intercomm;
-      pthread_t server_thread;
-      pthread_create(&server_thread, 0, serverThreadFn, intercomm_p);
+      pthread_create(&client->thread, 0, serverThreadFn, client);
 
       // this works fine if we wait for serverThreadFn to finish, but the thread
       // hangs in its first call to MPI_Send if we detach the thread
-      // pthread_join(server_thread, 0);
-      pthread_detach(server_thread);
+      // pthread_join(client->thread, 0);
+      pthread_detach(client->thread);
     }
 
 #if 0
@@ -117,7 +135,7 @@ int main(int argc,char **argv) {
     /*
      * After we're done, close the port
      */
-    MPI_Close_port(myport);
+    // MPI_Close_port(myport);
 
   } else {
 
