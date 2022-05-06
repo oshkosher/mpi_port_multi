@@ -1,4 +1,4 @@
-EXEC = test_multi_server test_multi_client
+EXEC = test_multi_server test_multi_client portappmultiple
 
 all: $(EXEC)
 
@@ -10,11 +10,16 @@ test_multi_server: test_multi_server.c
 test_multi_client: test_multi_client.c
 	$(MPICC) $^ -o $@
 
-runserver:
+portappmultiple: portappmultiple.c
+	$(MPICC) $^ -o $@
+
+runserver: test_multi_server
 	FI_MLX_NS_ENABLE=1 FI_MLX_ENABLE_SPAWN=yes ibrun -n 1 ./test_multi_server
 
-runclient:
-	FI_MLX_NS_ENABLE=1 FI_MLX_ENABLE_SPAWN=yes ibrun -n 1 ./test_multi_client
+runclient: test_multi_client
+	FI_MLX_NS_ENABLE=1 FI_MLX_ENABLE_SPAWN=yes ibrun -n 1 -o 1 ./test_multi_client
+
+# mvapich2-x: MV2_SUPPORT_DPM=1
 
 clean:
 	rm -f $(EXEC) test_multi.port_name

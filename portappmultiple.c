@@ -94,8 +94,10 @@ int main(int argc,char **argv) {
     
       // serverThreadFn(&intercomm);
 
+      MPI_Comm *intercomm_p = (MPI_Comm*) malloc(sizeof intercomm);
+      *intercomm_p = intercomm;
       pthread_t server_thread;
-      pthread_create(&server_thread, 0, serverThreadFn, &intercomm);
+      pthread_create(&server_thread, 0, serverThreadFn, intercomm_p);
 
       // this works fine if we wait for serverThreadFn to finish, but the thread
       // hangs in its first call to MPI_Send if we detach the thread
