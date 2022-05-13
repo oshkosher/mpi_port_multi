@@ -16,15 +16,17 @@ const char *PORT_FILENAME = "test_multi.port_name";
 int main(int argc, char **argv) {
   int rank;
 
+  fprintf(stderr, "Before MPI_Init\n");
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  fprintf(stderr, "[%d] After MPI_Init\n", rank);
 
   if (rank > 0) {
     MPI_Finalize();
     return 0;
   }
 
-  /*
+
   char port_name[MPI_MAX_PORT_NAME+1];
 
   FILE *port_name_file = fopen(PORT_FILENAME, "r");
@@ -34,14 +36,15 @@ int main(int argc, char **argv) {
     return 1;
   }
   fscanf(port_name_file, "%s", port_name);
-  */
 
+  /*
   if (argc != 2) {
     printf("Error: expected port_name as a command line argument\n");
     MPI_Finalize();
     return 1;
   }
   const char *port_name = argv[1];
+  */
 
   printf("client started, connecting to %s\n", port_name);
 

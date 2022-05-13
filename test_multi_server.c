@@ -100,16 +100,16 @@ int main(int argc, char **argv) {
     MPI_Open_port(MPI_INFO_NULL, client->port_name);
     printf("[main-thread] port for client %d opened: '%s'\n", client->id, client->port_name);
 
-    /*
+
     FILE *port_file = fopen(PORT_FILENAME, "w");
     if (!port_file) {
       printf("Error: failed to open \"%s\" for writing\n", PORT_FILENAME);
     } else {
-      fprintf(port_file, "%s\n", port_name);
+      fprintf(port_file, "%s\n", client->port_name);
       fclose(port_file);
       // printf("port_name written to %s\n", PORT_FILENAME);
     }
-    */
+
 
     printf("[main-thread] waiting for client %d\n", client->id);
     MPI_Comm_accept(client->port_name, MPI_INFO_NULL, 0, MPI_COMM_WORLD, &client->inter_comm);
